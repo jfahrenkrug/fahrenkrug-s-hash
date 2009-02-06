@@ -1,0 +1,38 @@
+READ ABOUT IT HERE: http://blog.springenwerk.com/2008/11/i-am-currently-building-iphone.html
+
+
+When using NSURLConnection to connect to site that requires HTTP Basic Authentication, providing NSURLCredentialPersistenceNone persists the credentials anyway (connection:didReceiveAuthenticationChallenge: is not called on following requests). Same goes for NSURLCredentialPersistenceForSession when the credentials are removed from the NSURLCredentialStorage.
+
+Steps to Reproduce:
+1. make a request: NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"http://localhost:3000/reports.json"]];
+2. start the connection: NSURLConnection *theConnection = [[NSURLConnection alloc] initWithRequest:request delegate:self];
+3. implement the delegate:
+- (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge {
+	NSLog(@"got auth challange");
+
+	if ([challenge previousFailureCount] == 0) {
+		[[challenge sender]  useCredential:[NSURLCredential credentialWithUser:@"user" password:@"pass" persistence:NSURLCredentialPersistenceNone] forAuthenticationChallenge:challenge];
+	} else {
+          [[challenge sender] cancelAuthenticationChallenge:challenge];        
+    }
+}
+4. start over from step one.
+
+Expected Results:
+I expect didReceiveAuthenticationChallenge to be hit on each request.
+
+Actual Results:
+didReceiveAuthenticationChallenge only gets hit at the first request.
+
+Notes:
+Adding a hash (#) to the end of the url string fixes this. See my blog post:
+http://blog.springenwerk.com/2008/11/i-am-currently-building-iphone.html
+
+
+I've created a project that demonstrates the issue.
+Start the app and login with "test/test". That should succeed (watch the log).
+Now change the user/pass to some bogus (wrong/blabla or something). Login again: It succeeds again! The authchallenge is never received!
+
+NOW: CLOSE the app and restart it.
+Check the checkbox.
+Login with "test/test" again. it should work. NOW login with bogus: it should fail (watch the logs): authchallenge is received when the first and subsequent calls have a hash (#) at the end. Weird, huh?
